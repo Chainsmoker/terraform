@@ -1,16 +1,16 @@
 terraform {
-  # State remoto en HCP Terraform (Terraform Cloud).
-  # Free tier — gratis hasta 500 recursos/mes (caben ~80 clientes a 6 recursos cada uno).
+  # State remoto en HCP Terraform (Terraform Cloud), free tier.
+  # Workspace por cliente, execution mode Local (apply corre en tu máquina).
   #
-  # La organization y workspace NO admiten interpolación, así que se pasan
-  # en `terraform init` vía -backend-config=backend.hcl (ver backend.hcl.example).
+  # El bloque cloud {} no admite -backend-config — la config se pasa vía env vars:
+  #   export TF_CLOUD_ORGANIZATION="tu-org"
+  #   export TF_WORKSPACE="<cliente>-prod"
   #
-  # Migración desde backend local existente:
-  #   terraform login
-  #   terraform init -backend-config=backend.hcl -migrate-state
+  # Cliente nuevo:
+  #   terraform login            # una vez por máquina
+  #   terraform init
   #
-  # Cliente nuevo (sin state previo):
-  #   terraform login
-  #   terraform init -backend-config=backend.hcl
+  # Migrar state local existente:
+  #   terraform init -migrate-state
   cloud {}
 }

@@ -51,10 +51,15 @@ variable "ssh_port" {
   }
 }
 
-variable "ssh_public_key_path" {
-  type        = string
-  description = "Absolute path to the SSH public key that will be authorized for the deploy user."
-  default     = "~/.ssh/id_ed25519.pub"
+variable "ssh_public_key_paths" {
+  type        = list(string)
+  description = "Paths a pubkeys autorizadas en el deploy user. La primera se registra en DO; todas van a authorized_keys via cloud-init. Mínimo 1."
+  default     = ["~/.ssh/id_ed25519.pub"]
+
+  validation {
+    condition     = length(var.ssh_public_key_paths) >= 1
+    error_message = "ssh_public_key_paths debe contener al menos una ruta."
+  }
 }
 
 variable "allowed_ssh_ips" {

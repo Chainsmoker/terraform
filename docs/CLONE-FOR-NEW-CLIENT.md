@@ -74,12 +74,20 @@ default_region = "nyc3"                 # o el más cercano al cliente
 default_size   = "s-2vcpu-4gb"          # ajustable según presupuesto
 droplet_image  = "ubuntu-24-04-x64"
 
-ssh_port            = 22
-ssh_public_key_path = "~/.ssh/clients/cliente-x_ed25519.pub"   # !! la nueva, NO la default
-allowed_ssh_ips     = ["0.0.0.0/0", "::/0"]                    # idealmente: ["TU.IP.PUBLICA/32"]
+ssh_port = 22
 
-deploy_user = "deploy"
-acme_email  = "ops@cliente-x.com"       # va a Let's Encrypt — usa email del cliente o uno tuyo
+# Pubkeys autorizadas. La primera se registra en DO; todas van a authorized_keys.
+ssh_public_key_paths = [
+  "~/.ssh/clients/cliente-x_ed25519.pub",      # !! la nueva del cliente
+  # "~/.ssh/teammate_ed25519.pub",             # añade compañeros / hardware keys aquí
+]
+
+allowed_ssh_ips = ["0.0.0.0/0", "::/0"]                    # idealmente: ["TU.IP.PUBLICA/32"]
+
+# Linux user. Si lo igualas al nombre del cliente, `ssh cliente-x@<ip>` queda en tu zsh history y autocompleta solo.
+deploy_user = "cliente-x"
+
+acme_email = "ops@cliente-x.com"       # va a Let's Encrypt — usa email del cliente o uno tuyo
 
 enable_backups    = true                # ~$0.80/mo, recomendado
 enable_monitoring = true                # gratis, métricas en panel DO
@@ -96,7 +104,7 @@ tags = ["client:cliente-x", "env:prod"]
 ```ssh-config
 Host cliente-x
     HostName <pendiente-tras-apply>
-    User deploy
+    User cliente-x                 # mismo que deploy_user en tfvars
     IdentityFile ~/.ssh/clients/cliente-x_ed25519
     IdentitiesOnly yes
 ```
@@ -105,17 +113,21 @@ Host cliente-x
 
 ### 6. Configurar backend HCP y hacer init
 
-```bash
-cp backend.hcl.example backend.hcl
-# Edita backend.hcl:
-#   organization = "mdx-so"
-#   workspaces { name = "cliente-x-prod" }
+El bloque `cloud {}` de `backend.tf` se configura vía **variables de entorno** (no admite `-backend-config`). Edita `.env` (que ya copiaste en paso 4) y añade tu org HCP + nombre de workspace de este cliente:
 
-terraform init -backend-config=backend.hcl
+```bash
+# Edita .env y añade al final:
+#   TF_CLOUD_ORGANIZATION=tu-org-hcp        # constante para todos los clientes
+#   TF_WORKSPACE=cliente-x-prod             # cambia por cliente
+
+# Exporta las vars del .env al shell:
+set -a; source .env; set +a
+
+terraform init
 terraform plan -out=plan.tfplan
 ```
 
-> `backend.hcl` está en `.gitignore` (un fichero por cliente, no se commitea). El `backend.hcl.example` sí va al repo como plantilla.
+> **Tip:** si usas [direnv](https://direnv.net/), crea `.envrc` con `dotenv` y se carga automáticamente al entrar al directorio. `.envrc` está en `.gitignore`.
 
 Revisa el plan. Debes ver **6 resources a crear**:
 
@@ -249,7 +261,7 @@ Cuando vayas a desplegar a un nuevo cliente, el cambio ya estará en los assets 
 
 ### Rotar tu SSH key local sin recrear droplet
 
-`ssh_keys` está en `lifecycle.ignore_changes` del módulo droplet, así que cambiar `ssh_public_key_path` no destruye el droplet. Pero **sí** wipea la pubkey vieja en `authorized_keys` la próxima vez que cloud-init corra.
+`ssh_keys` está en `lifecycle.ignore_changes` del módulo droplet, así que cambiar `ssh_public_key_paths` no destruye el droplet — y como cloud-init solo corre en el primer boot, tampoco propaga las keys nuevas al server vivo.
 
 Para añadir/cambiar tu pubkey en un droplet existente:
 ```bash
@@ -290,11 +302,11 @@ Tras destruir:
 [ ] SSH key generada en ~/.ssh/clients/cliente-x_ed25519
 [ ] Privkey + pubkey + passphrase guardados en Bitwarden
 [ ] .env editado con token DO (sin CRLF, sin comillas)
-[ ] terraform.tfvars editado: project_name, acme_email, ssh_public_key_path, allowed_ssh_ips
+[ ] terraform.tfvars editado: project_name, acme_email, ssh_public_key_paths, deploy_user, allowed_ssh_ips
 [ ] Workspace creado en HCP Terraform (Execution mode: Local)
-[ ] backend.hcl editado con organization + workspace
+[ ] .env contiene TF_CLOUD_ORGANIZATION + TF_WORKSPACE (exportadas al shell)
 [ ] Alias añadido a ~/.ssh/config
-[ ] terraform init -backend-config=backend.hcl + plan revisado (6 resources a crear)
+[ ] terraform init + plan revisado (6 resources a crear)
 [ ] terraform apply
 [ ] Esperar cloud-init status --wait
 [ ] DNS apuntando al reserved_ip

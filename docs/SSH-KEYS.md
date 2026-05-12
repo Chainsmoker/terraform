@@ -173,7 +173,20 @@ exit
 ```
 
 ### Método C: en el momento de provisionar (Terraform / cloud-init)
-La pubkey va en el `user_data` del droplet a través de `var.ssh_public_key_path`. Cloud-init la escribe en `/home/deploy/.ssh/authorized_keys` en el primer boot.
+
+Las pubkeys van en el `user_data` del droplet a través de `var.ssh_public_key_paths` (lista). Cloud-init las escribe TODAS en `/home/<deploy_user>/.ssh/authorized_keys` en el primer boot.
+
+```hcl
+# terraform.tfvars
+ssh_public_key_paths = [
+  "~/.ssh/clients/cliente-x_ed25519.pub",
+  "~/.ssh/teammate_ed25519.pub",
+]
+```
+
+La primera key también se registra en la cuenta DO (vía `digitalocean_ssh_key`); las demás solo viven en cloud-init → `authorized_keys`.
+
+> **Cuidado:** cambiar `ssh_public_key_paths` después del primer apply NO actualiza el server (cloud-init solo corre en el primer boot, y `user_data` está en `ignore_changes` para `ssh_keys`). Si añades una key a un server vivo, usa Método A (editar `authorized_keys` por SSH).
 
 ### Verifica
 ```bash

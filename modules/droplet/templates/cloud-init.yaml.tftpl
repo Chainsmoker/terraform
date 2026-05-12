@@ -13,7 +13,9 @@ users:
     lock_passwd: true
     sudo: "ALL=(ALL) NOPASSWD:ALL"
     ssh_authorized_keys:
-      - ${ssh_public_key}
+%{ for key in ssh_public_keys ~}
+      - ${key}
+%{ endfor ~}
 
 write_files:
   - path: /etc/ssh/sshd_config
@@ -52,6 +54,11 @@ write_files:
     owner: root:root
     encoding: b64
     content: ${caddyfile_b64}
+  - path: /usr/local/bin/install-tools.sh
+    permissions: "0755"
+    owner: root:root
+    encoding: b64
+    content: ${tools_b64}
 
 packages:
   - ufw
@@ -105,5 +112,6 @@ runcmd:
   - ufw allow 443/tcp
   - ufw allow 443/udp
   - ufw --force enable
+  - /usr/local/bin/install-tools.sh
 
 final_message: "zero-touch bootstrap complete after $UPTIME seconds"

@@ -1,5 +1,5 @@
 locals {
-  ssh_public_key = trimspace(file(pathexpand(var.ssh_public_key_path)))
+  ssh_public_keys = [for p in var.ssh_public_key_paths : trimspace(file(pathexpand(p)))]
 
   all_tags = distinct(concat(
     ["managed-by:terraform", "project:${var.project_name}"],
@@ -7,11 +7,11 @@ locals {
   ))
 
   cloud_init_vars = {
-    deploy_user    = var.deploy_user
-    ssh_public_key = local.ssh_public_key
-    ssh_port       = var.ssh_port
-    acme_email     = var.acme_email
-    install_docker = var.install_docker
+    deploy_user     = var.deploy_user
+    ssh_public_keys = local.ssh_public_keys
+    ssh_port        = var.ssh_port
+    acme_email      = var.acme_email
+    install_docker  = var.install_docker
 
     caddyfile_b64 = base64encode(file("${path.module}/assets/caddy/Caddyfile"))
     sshd_config_b64 = base64encode(templatefile(
@@ -24,6 +24,7 @@ locals {
     ))
     sysctl_b64   = base64encode(file("${path.module}/assets/sysctl/99-hardening.conf"))
     tmpfiles_b64 = base64encode(file("${path.module}/assets/tmpfiles/caddy.conf"))
+    tools_b64    = base64encode(file("${path.module}/assets/tools/install.sh"))
   }
 
   user_data = templatefile(
@@ -36,7 +37,7 @@ module "ssh_key" {
   source = "./modules/ssh-key"
 
   name_prefix = var.project_name
-  public_key  = local.ssh_public_key
+  public_key  = local.ssh_public_keys[0]
 }
 
 module "network" {

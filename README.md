@@ -5,19 +5,20 @@ Template reutilizable: un droplet endurecido con Caddy como reverse proxy, listo
 ## Requisitos locales
 
 - Terraform ≥ 1.7
-- Una SSH key en `~/.ssh/id_ed25519.pub` (o ajusta `ssh_public_key_path`)
+- Una SSH key en `~/.ssh/id_ed25519.pub` (o ajusta `ssh_public_key_paths` — es una lista, soporta múltiples)
 - Un token DigitalOcean con **Full Access** (token read-only da 401 en POST)
 - Cuenta en [HCP Terraform](https://app.terraform.io) (free tier) + `terraform login` ya hecho — el state vive remoto.
 
 ## Uso
 
-`.env` solo contiene el token (Terraform lo lee directamente del fichero vía regex, no hace falta exportarlo al shell). Todo lo demás vive en `terraform.tfvars`.
+`.env` contiene el token DO + las vars de HCP Terraform. El token DO Terraform lo lee del fichero vía regex (no hace falta exportarlo). Las vars `TF_CLOUD_ORGANIZATION` y `TF_WORKSPACE` **sí** hay que exportarlas al shell para que `terraform init` las recoja.
 
 ```bash
-cp .env.example .env                            # pegar DIGITALOCEAN_TOKEN
+cp .env.example .env                            # editar DIGITALOCEAN_TOKEN + TF_CLOUD_ORGANIZATION + TF_WORKSPACE
 cp terraform.tfvars.example terraform.tfvars    # ajustar acme_email, project_name, etc.
-cp backend.hcl.example backend.hcl              # ajustar organization + workspace HCP
-terraform init -backend-config=backend.hcl
+
+set -a; source .env; set +a                     # exporta todo .env al shell
+terraform init
 terraform apply
 ```
 
@@ -99,12 +100,13 @@ ssh deploy@<reserved_ip> '
 
 Vive en **HCP Terraform** (Terraform Cloud) — un workspace por cliente (`<cliente>-prod`), execution mode **Local** para que `apply` siga corriendo en tu máquina pero el state quede versionado, encriptado y con locking nativo en el cloud de HashiCorp. Gratis hasta 500 recursos/mes (~80 clientes a 6 recursos cada uno).
 
-`organization` y `workspaces.name` viven en `backend.hcl` (gitignored, uno por cliente). El template solo trae `backend.hcl.example`.
+El bloque `cloud {}` de `backend.tf` se parametriza vía env vars `TF_CLOUD_ORGANIZATION` y `TF_WORKSPACE` (no admite `-backend-config`). Ambas viven en `.env` (gitignored) y se exportan con `set -a; source .env; set +a`.
 
 Para migrar un working dir con state local existente a HCP:
 ```bash
 terraform login
-terraform init -backend-config=backend.hcl -migrate-state
+set -a; source .env; set +a
+terraform init -migrate-state
 ```
 
 ## Destruir

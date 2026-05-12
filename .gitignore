@@ -48,11 +48,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# HCP Terraform backend config (org + workspace por cliente)
-backend.hcl
-*.backend.hcl
-!backend.hcl.example
-!*.backend.hcl.example
+# direnv (si lo usas para auto-cargar TF_CLOUD_ORGANIZATION / TF_WORKSPACE)
+.envrc
+.direnv/
 
 # -------- Editores / IDE --------
 .idea/
