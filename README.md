@@ -7,17 +7,21 @@ Template reutilizable: un droplet endurecido con Caddy como reverse proxy, listo
 - Terraform ≥ 1.7
 - Una SSH key en `~/.ssh/id_ed25519.pub` (o ajusta `ssh_public_key_path`)
 - Un token DigitalOcean con **Full Access** (token read-only da 401 en POST)
+- Cuenta en [HCP Terraform](https://app.terraform.io) (free tier) + `terraform login` ya hecho — el state vive remoto.
 
 ## Uso
 
 `.env` solo contiene el token (Terraform lo lee directamente del fichero vía regex, no hace falta exportarlo al shell). Todo lo demás vive en `terraform.tfvars`.
 
 ```bash
-cp .env.example .env                          # pegar DIGITALOCEAN_TOKEN
-cp terraform.tfvars.example terraform.tfvars   # ajustar acme_email, project_name, etc.
-terraform init
+cp .env.example .env                            # pegar DIGITALOCEAN_TOKEN
+cp terraform.tfvars.example terraform.tfvars    # ajustar acme_email, project_name, etc.
+cp backend.hcl.example backend.hcl              # ajustar organization + workspace HCP
+terraform init -backend-config=backend.hcl
 terraform apply
 ```
+
+Para el workflow completo de cliente nuevo (creación de workspace HCP, SSH keys, DNS, etc.) ver `docs/CLONE-FOR-NEW-CLIENT.md`.
 
 Tras `apply`:
 
@@ -93,7 +97,15 @@ ssh deploy@<reserved_ip> '
 
 ## State de Terraform
 
-Vive en `.terraform-state/terraform.tfstate` (gitignored). Para equipo/CI, migra a DigitalOcean Spaces modificando `backend.tf` a backend `s3` con endpoint DO.
+Vive en **HCP Terraform** (Terraform Cloud) — un workspace por cliente (`<cliente>-prod`), execution mode **Local** para que `apply` siga corriendo en tu máquina pero el state quede versionado, encriptado y con locking nativo en el cloud de HashiCorp. Gratis hasta 500 recursos/mes (~80 clientes a 6 recursos cada uno).
+
+`organization` y `workspaces.name` viven en `backend.hcl` (gitignored, uno por cliente). El template solo trae `backend.hcl.example`.
+
+Para migrar un working dir con state local existente a HCP:
+```bash
+terraform login
+terraform init -backend-config=backend.hcl -migrate-state
+```
 
 ## Destruir
 
@@ -128,5 +140,4 @@ Lecciones del primer deploy (ya resueltas en el template, documentadas aquí com
 ## Fuera de scope actual
 
 - **Rate limiting en Caddy** — Caddy core no lo trae. Para añadirlo: rebuild con el módulo `caddy-ratelimit` (xcaddy), o usa fail2ban contra patrones del `access.log`, o pon Cloudflare delante.
-- **Remote state** en DO Spaces — trivial cuando quieras: cambia el bloque `backend "local"` por `backend "s3"` con `endpoints.s3 = "https://<region>.digitaloceanspaces.com"`.
 - **Cloudflare proxy** — añadir como módulo opcional `modules/cloudflare-dns/` si necesitas WAF/DDoS gestionado.

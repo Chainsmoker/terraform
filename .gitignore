@@ -8,7 +8,7 @@
 !*.tfvars.example
 !*.tfvars.json.example
 
-# SSH keys (no deberían vivir en el repo, pero por si acaso)
+# SSH keys
 id_rsa
 id_rsa.pub
 id_ed25519
@@ -22,13 +22,13 @@ id_ed25519.pub
 .terraform/
 .terraform.tfstate.lock.info
 
-# State (usamos backend local en .terraform-state/)
+# State 
 .terraform-state/
 *.tfstate
 *.tfstate.*
 *.tfstate.backup
 
-# Plans (pueden contener secretos en plaintext)
+# Plans 
 *.tfplan
 *.tfplan.*
 plan.out
@@ -47,6 +47,12 @@ override.tf.json
 # CLI config
 .terraformrc
 terraform.rc
+
+# HCP Terraform backend config (org + workspace por cliente)
+backend.hcl
+*.backend.hcl
+!backend.hcl.example
+!*.backend.hcl.example
 
 # -------- Editores / IDE --------
 .idea/

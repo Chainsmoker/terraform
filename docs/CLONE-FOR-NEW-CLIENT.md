@@ -8,6 +8,7 @@ Workflow paso a paso para desplegar la misma infraestructura en otra cuenta Digi
 - DNS del dominio del cliente — apuntable a un IP que tú elijas.
 - Bitwarden / 1Password para guardar la SSH privkey (mandatorio).
 - Terraform ≥ 1.7 instalado.
+- Cuenta en [HCP Terraform](https://app.terraform.io) (free tier) y `terraform login` ya hecho en tu máquina (una sola vez, no por cliente).
 
 ## Pasos
 
@@ -22,6 +23,17 @@ rm -rf .terraform .terraform-state .terraform.lock.hcl
 ```
 
 > **Nota:** `.terraform.lock.hcl` se commitea en el template original (best practice de HashiCorp para pinear versiones de provider). Lo borramos al clonar para que el cliente nuevo regenere el suyo según las versiones disponibles en su entorno.
+
+### 1b. Crear workspace en HCP Terraform
+
+En [app.terraform.io](https://app.terraform.io):
+
+1. **Workspaces → New workspace → CLI-driven workflow**
+2. Nombre: `cliente-x-prod` (mismo patrón siempre: `<cliente>-prod`).
+3. Organization: tu org (la misma para todos los clientes, p.ej. `mdx-so`).
+4. Execution mode: **Local** (Settings → General). Importante — si lo dejas en "Remote", HCP intentará correr `terraform apply` en sus runners y no tendrá tu `.env`, ni tu SSH key local, ni acceso a tu sistema de ficheros para `templatefile()`.
+
+   Con **Local**, HCP solo guarda el state y hace locking — el `apply` corre en tu máquina, igual que antes. Es lo que queremos.
 
 ### 2. Generar SSH key dedicada para este cliente
 
@@ -91,12 +103,19 @@ Host cliente-x
 
 (El `HostName` lo rellenas tras el apply con el `reserved_ip`.)
 
-### 6. Init y plan
+### 6. Configurar backend HCP y hacer init
 
 ```bash
-terraform init
+cp backend.hcl.example backend.hcl
+# Edita backend.hcl:
+#   organization = "mdx-so"
+#   workspaces { name = "cliente-x-prod" }
+
+terraform init -backend-config=backend.hcl
 terraform plan -out=plan.tfplan
 ```
+
+> `backend.hcl` está en `.gitignore` (un fichero por cliente, no se commitea). El `backend.hcl.example` sí va al repo como plantilla.
 
 Revisa el plan. Debes ver **6 resources a crear**:
 
@@ -272,8 +291,10 @@ Tras destruir:
 [ ] Privkey + pubkey + passphrase guardados en Bitwarden
 [ ] .env editado con token DO (sin CRLF, sin comillas)
 [ ] terraform.tfvars editado: project_name, acme_email, ssh_public_key_path, allowed_ssh_ips
+[ ] Workspace creado en HCP Terraform (Execution mode: Local)
+[ ] backend.hcl editado con organization + workspace
 [ ] Alias añadido a ~/.ssh/config
-[ ] terraform init + plan revisado (6 resources a crear)
+[ ] terraform init -backend-config=backend.hcl + plan revisado (6 resources a crear)
 [ ] terraform apply
 [ ] Esperar cloud-init status --wait
 [ ] DNS apuntando al reserved_ip
