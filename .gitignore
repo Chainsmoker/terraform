@@ -1,0 +1,67 @@
+# -------- Secrets / credentials --------
+.env
+.env.*
+!.env.example
+
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.json.example
+
+# SSH keys (no deberían vivir en el repo, pero por si acaso)
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.pem
+*.key
+*.ppk
+
+# -------- Terraform --------
+# Working dir y plugin cache
+.terraform/
+.terraform.tfstate.lock.info
+
+# State (usamos backend local en .terraform-state/)
+.terraform-state/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Plans (pueden contener secretos en plaintext)
+*.tfplan
+*.tfplan.*
+plan.out
+
+# Crash / debug logs
+crash.log
+crash.*.log
+terraform.log
+
+# Overrides locales — siempre out-of-scope del template
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# -------- Editores / IDE --------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.history/
+
+# -------- OS --------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# -------- Misc --------
+*.bak
+*.backup
+*.tmp

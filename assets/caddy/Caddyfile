@@ -1,0 +1,49 @@
+{
+	email {$ACME_EMAIL}
+	servers {
+		protocols h1 h2 h3
+		metrics
+	}
+	log default {
+		output file /var/log/caddy/access.log {
+			roll_size 100mb
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+		level INFO
+	}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-site"
+		-Server
+	}
+}
+
+(compression) {
+	encode zstd gzip
+}
+
+(common) {
+	import security_headers
+	import compression
+}
+
+(defaults) {
+	import common
+}
+
+(deny_hidden) {
+	@hidden path_regexp hidden ^/\.
+	respond @hidden 404
+}
+
+import /etc/caddy/sites.d/*.caddy

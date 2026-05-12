@@ -1,0 +1,109 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+ssh_pwauth: false
+disable_root: true
+
+users:
+  - default
+  - name: ${deploy_user}
+    shell: /bin/bash
+    groups: [sudo]
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+write_files:
+  - path: /etc/ssh/sshd_config
+    permissions: "0644"
+    owner: root:root
+    encoding: b64
+    content: ${sshd_config_b64}
+  - path: /etc/fail2ban/jail.local
+    permissions: "0644"
+    owner: root:root
+    encoding: b64
+    content: ${fail2ban_b64}
+  - path: /etc/sysctl.d/99-hardening.conf
+    permissions: "0644"
+    owner: root:root
+    encoding: b64
+    content: ${sysctl_b64}
+  - path: /etc/tmpfiles.d/caddy.conf
+    permissions: "0644"
+    owner: root:root
+    encoding: b64
+    content: ${tmpfiles_b64}
+  - path: /etc/default/caddy
+    permissions: "0644"
+    owner: root:root
+    content: |
+      ACME_EMAIL=${acme_email}
+  - path: /etc/systemd/system/caddy.service.d/override.conf
+    permissions: "0644"
+    owner: root:root
+    content: |
+      [Service]
+      EnvironmentFile=-/etc/default/caddy
+  - path: /tmp/Caddyfile.staged
+    permissions: "0644"
+    owner: root:root
+    encoding: b64
+    content: ${caddyfile_b64}
+
+packages:
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - curl
+  - ca-certificates
+  - gnupg
+  - debian-keyring
+  - debian-archive-keyring
+  - apt-transport-https
+  - acl
+  - jq
+
+runcmd:
+  - install -d -m 0755 /etc/apt/keyrings
+  - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' -o /etc/apt/sources.list.d/caddy-stable.list
+%{ if install_docker ~}
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list'
+%{ endif ~}
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y caddy
+%{ if install_docker ~}
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+%{ endif ~}
+  - install -o root -g caddy -m 0644 /tmp/Caddyfile.staged /etc/caddy/Caddyfile
+  - rm -f /tmp/Caddyfile.staged
+  - install -d -o root -g caddy -m 0750 /etc/caddy/sites.d
+  - install -d -o ${deploy_user} -g ${deploy_user} -m 0755 /srv
+  - systemd-tmpfiles --create /etc/tmpfiles.d/caddy.conf
+  - chown -R caddy:caddy /var/lib/caddy /var/log/caddy
+  - setfacl -d -m g:caddy:rwX /var/log/caddy
+  - setfacl -m g:caddy:rwX /var/log/caddy
+  - usermod -aG caddy ${deploy_user}
+%{ if install_docker ~}
+  - usermod -aG docker ${deploy_user}
+%{ endif ~}
+  - sysctl --system
+  - systemctl daemon-reload
+  - systemctl enable --now fail2ban
+  - systemctl enable --now unattended-upgrades
+  - systemctl enable --now caddy
+  - ufw --force reset
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ${ssh_port}/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw allow 443/udp
+  - ufw --force enable
+
+final_message: "zero-touch bootstrap complete after $UPTIME seconds"
