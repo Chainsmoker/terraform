@@ -1,22 +1,17 @@
-project_name   = "infra"            # prefijo de recursos + tags. Puedes ponerlo igual al nombre del cliente.
+project_name   = "infra"            
 default_region = "nyc3"
 default_size   = "s-2vcpu-4gb"
 droplet_image  = "ubuntu-24-04-x64"
 
 ssh_port = 22
 
-# Pubkeys autorizadas en el user de deploy. La primera se registra también en DO.
 ssh_public_key_paths = [
   "~/.ssh/clients/cliente-x_ed25519.pub",
-  # "~/.ssh/teammate_ed25519.pub",        # añade más para compañeros / hardware keys
 ]
 
-allowed_ssh_ips = ["0.0.0.0/0", "::/0"]   # idealmente: ["TU.IP.PUBLICA/32"]
+allowed_ssh_ips = ["0.0.0.0/0", "::/0"]   # ["IP.PUBLICA/32"]
 
-# El nombre del user Linux en el server. Por ergonomía pon el nombre del cliente
-# para que `ssh cliente-x@<ip>` sea natural y tu zsh history autocomplete bien.
 deploy_user = "deploy"
-
 acme_email = "ops@cliente-x.com"
 
 enable_backups    = true
